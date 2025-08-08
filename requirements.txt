@@ -1,0 +1,6 @@
+pywin32
+pynput
+fuzzywuzzy
+python-levenshtein
+psutil
+PyQt5
