@@ -1,6 +1,5 @@
 pywin32
 pynput
-fuzzywuzzy
-python-levenshtein
+rapidfuzz
 psutil
 PyQt5
