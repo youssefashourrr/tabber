@@ -2,6 +2,9 @@ import psutil
 import win32gui
 import win32process
 import win32con
+import threading
+import time
+from typing import Callable, List
 
 from window import Window
 
@@ -12,69 +15,121 @@ SYSTEM_PROCESSES = {
     'TextInputHost.exe',
 }
 
+EXCLUDED_CLASSES = {
+    'Shell_TrayWnd',
+    'Progman',
+    'WorkerW',
+    'Button',
+    'DV2ControlHost',
+    'Windows.UI.Core.CoreWindow',
+    'ApplicationFrameWindow',
+}
+
+MIN_WINDOW_WIDTH = 100
+MIN_WINDOW_HEIGHT = 50
+
 
 class WindowManager:
 
-    def __init__(self):
-        self._windows = []
+    def __init__(self, auto_start_monitoring: bool = True):
+        self._cached_windows = []
+        self._last_refresh = 0
+        self._refresh_interval = 2.0
+        self._change_callbacks = []
+        self._lock = threading.Lock()
+        self._monitoring_thread = None
+        self._stop_monitoring = False
+        
+        if auto_start_monitoring:
+            self._start_monitoring()
+            self._initial_load()
+        
+    def _initial_load(self):
+        try:
+            self.get_all_windows(force_refresh=True)
+        except Exception as e:
+            print(f"Error in initial window load: {e}")
 
     def _should_include_window(self, handle: int, process_name: str) -> bool:
         try:
             ex_style = win32gui.GetWindowLong(handle, win32con.GWL_EXSTYLE)
-            if ex_style & win32con.WS_EX_TOOLWINDOW:
+            if ex_style & (win32con.WS_EX_TOOLWINDOW | win32con.WS_EX_NOACTIVATE):
                 return False
 
-            owner = win32gui.GetWindow(handle, win32con.GW_OWNER)
-            if owner != 0:
+            if win32gui.GetWindow(handle, win32con.GW_OWNER) != 0:
                 return False
 
             style = win32gui.GetWindowLong(handle, win32con.GWL_STYLE)
-            if not (style & win32con.WS_VISIBLE):
-                return False
-
-            if not (style & win32con.WS_CAPTION):
+            if not (style & win32con.WS_VISIBLE) or not (style & win32con.WS_CAPTION):
                 return False
 
             class_name = win32gui.GetClassName(handle)
-            if not class_name:
-                return False
-
-            excluded_classes = {
-                'Shell_TrayWnd',
-                'Progman',
-                'WorkerW',
-                'Button',
-                'DV2ControlHost',
-                'Windows.UI.Core.CoreWindow',
-                'ApplicationFrameWindow',
-            }
-            if class_name in excluded_classes:
-                return False
-
-            try:
-                rect = win32gui.GetWindowRect(handle)
-                width = rect[2] - rect[0]
-                height = rect[3] - rect[1]
-                if width < 100 or height < 50:
-                    return False
-            except:
-                return False
-
-            if process_name in SYSTEM_PROCESSES:
+            if class_name in EXCLUDED_CLASSES or process_name in SYSTEM_PROCESSES:
                 return False
 
             title = win32gui.GetWindowText(handle)
-            if not title or title.strip() == "":
+            if not title or not title.strip():
                 return False
 
-            if ex_style & win32con.WS_EX_NOACTIVATE:
-                return False
+            if not win32gui.IsIconic(handle):
+                try:
+                    rect = win32gui.GetWindowRect(handle)
+                    width, height = rect[2] - rect[0], rect[3] - rect[1]
+                    if width < MIN_WINDOW_WIDTH or height < MIN_WINDOW_HEIGHT:
+                        return False
+                except:
+                    return False
 
             return True
-        except:
+            
+        except Exception:
             return False
 
-    def get_all_windows(self) -> list[Window]:
+    def add_change_callback(self, callback: Callable[[], None]) -> None:
+        self._change_callbacks.append(callback)
+        
+    def remove_change_callback(self, callback: Callable[[], None]) -> None:
+        if callback in self._change_callbacks:
+            self._change_callbacks.remove(callback)
+            
+    def _notify_change_callbacks(self) -> None:
+        for callback in self._change_callbacks:
+            try:
+                callback()
+            except Exception as e:
+                print(f"Error in window change callback: {e}")
+                
+    def _start_monitoring(self) -> None:
+        def monitor_thread():
+            while not self._stop_monitoring:
+                try:
+                    time.sleep(self._refresh_interval)
+                    
+                    if self._stop_monitoring:
+                        break
+                        
+                    if self._change_callbacks:
+                        old_count = len(self._cached_windows)
+                        self.get_all_windows(force_refresh=True)
+                        new_count = len(self._cached_windows)
+                        
+                        if old_count != new_count:
+                            self._notify_change_callbacks()
+                            
+                except Exception as e:
+                    print(f"Error in window monitoring thread: {e}")
+                    if not self._stop_monitoring:
+                        time.sleep(3)
+                    
+        self._monitoring_thread = threading.Thread(target=monitor_thread, daemon=True)
+        self._monitoring_thread.start()
+        
+    def stop_monitoring(self):
+        self._stop_monitoring = True
+        if self._monitoring_thread:
+            self._monitoring_thread.join(timeout=1)
+        
+    def _get_windows_now(self) -> List[Window]:
         windows = []
 
         def callback(handle: int, extra) -> bool:
@@ -83,24 +138,36 @@ class WindowManager:
                 if title:
                     try:
                         pid = win32process.GetWindowThreadProcessId(handle)[1]
-                        process_name = psutil.Process(pid).name()
+                        process = psutil.Process(pid)
+                        process_name = process.name()
 
                         if self._should_include_window(handle, process_name):
                             windows.append(Window(handle, title, pid, process_name))
-                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                         pass
             return True
 
-        win32gui.EnumWindows(callback, None)
-        self._windows = windows
+        try:
+            win32gui.EnumWindows(callback, None)
+        except Exception as e:
+            print(f"Error enumerating windows: {e}")
+            
         return windows
+
+    def get_all_windows(self, force_refresh: bool = False) -> List[Window]:
+        with self._lock:
+            current_time = time.time()
+            
+            if (force_refresh or not self._cached_windows or 
+                current_time - self._last_refresh > self._refresh_interval):
+                self._cached_windows = self._get_windows_now()
+                self._last_refresh = current_time
+                
+            return self._cached_windows.copy()
 
     def switch_to_window(self, handle: int) -> bool:
         try:
-            if not win32gui.IsWindow(handle):
-                return False
-
-            if not win32gui.IsWindowVisible(handle):
+            if not win32gui.IsWindow(handle) or not win32gui.IsWindowVisible(handle):
                 return False
 
             if win32gui.IsIconic(handle):
@@ -110,8 +177,7 @@ class WindowManager:
 
             win32gui.BringWindowToTop(handle)
 
-            success = win32gui.SetForegroundWindow(handle)
-            if not success:
+            if not win32gui.SetForegroundWindow(handle):
                 try:
                     win32gui.SetWindowPos(handle, win32con.HWND_TOP, 0, 0, 0, 0,
                                         win32con.SWP_NOMOVE | win32con.SWP_NOSIZE |

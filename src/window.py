@@ -22,5 +22,8 @@ class Window:
     def process_name(self) -> str:
         return self._process_name
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"Window({self._handle}, {self._title}, {self._process_id}, {self._process_name})"
+    
+    def __str__(self) -> str:
+        return f"{self._title} ({self._process_name})"
