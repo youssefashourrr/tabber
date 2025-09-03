@@ -7,6 +7,7 @@ import time
 from typing import Callable, List
 
 from window import Window
+from logger import get_logger, log_exception, WindowManagerError
 
 SYSTEM_PROCESSES = {
     'dwm.exe',
@@ -32,6 +33,7 @@ MIN_WINDOW_HEIGHT = 50
 class WindowManager:
 
     def __init__(self, auto_start_monitoring: bool = True):
+        self.logger = get_logger("window_manager")
         self._cached_windows = []
         self._last_refresh = 0
         self._refresh_interval = 2.0
@@ -47,8 +49,10 @@ class WindowManager:
     def _initial_load(self):
         try:
             self.get_all_windows(force_refresh=True)
+            self.logger.info("Initial window load completed successfully")
         except Exception as e:
-            print(f"Error in initial window load: {e}")
+            log_exception(self.logger, e, "initial window load")
+            raise WindowManagerError("Failed to load initial windows") from e
 
     def _should_include_window(self, handle: int, process_name: str) -> bool:
         try:
@@ -77,12 +81,14 @@ class WindowManager:
                     width, height = rect[2] - rect[0], rect[3] - rect[1]
                     if width < MIN_WINDOW_WIDTH or height < MIN_WINDOW_HEIGHT:
                         return False
-                except:
+                except Exception as e:
+                    self.logger.debug(f"Failed to get window rect for {handle}: {e}")
                     return False
 
             return True
             
-        except Exception:
+        except Exception as e:
+            self.logger.debug(f"Error checking window {handle}: {e}")
             return False
 
     def add_change_callback(self, callback: Callable[[], None]) -> None:
@@ -97,10 +103,11 @@ class WindowManager:
             try:
                 callback()
             except Exception as e:
-                print(f"Error in window change callback: {e}")
+                log_exception(self.logger, e, "window change callback")
                 
     def _start_monitoring(self) -> None:
         def monitor_thread():
+            self.logger.debug("Window monitoring thread started")
             while not self._stop_monitoring:
                 try:
                     time.sleep(self._refresh_interval)
@@ -114,10 +121,11 @@ class WindowManager:
                         new_count = len(self._cached_windows)
                         
                         if old_count != new_count:
+                            self.logger.debug(f"Window count changed: {old_count} -> {new_count}")
                             self._notify_change_callbacks()
                             
                 except Exception as e:
-                    print(f"Error in window monitoring thread: {e}")
+                    log_exception(self.logger, e, "window monitoring thread")
                     if not self._stop_monitoring:
                         time.sleep(3)
                     
@@ -125,9 +133,12 @@ class WindowManager:
         self._monitoring_thread.start()
         
     def stop_monitoring(self):
+        self.logger.info("Stopping window monitoring")
         self._stop_monitoring = True
         if self._monitoring_thread:
             self._monitoring_thread.join(timeout=1)
+            if self._monitoring_thread.is_alive():
+                self.logger.warning("Window monitoring thread did not stop gracefully")
         
     def _get_windows_now(self) -> List[Window]:
         windows = []
@@ -143,32 +154,42 @@ class WindowManager:
 
                         if self._should_include_window(handle, process_name):
                             windows.append(Window(handle, title, pid, process_name))
-                    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                        pass
+                    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess) as e:
+                        self.logger.debug(f"Process access error for PID {handle}: {type(e).__name__}")
+                    except Exception as e:
+                        self.logger.warning(f"Unexpected error processing window {handle}: {e}")
             return True
 
         try:
             win32gui.EnumWindows(callback, None)
         except Exception as e:
-            print(f"Error enumerating windows: {e}")
+            log_exception(self.logger, e, "enumerating windows")
+            raise WindowManagerError("Failed to enumerate windows") from e
             
         return windows
 
     def get_all_windows(self, force_refresh: bool = False) -> List[Window]:
-        with self._lock:
-            current_time = time.time()
-            
-            if (force_refresh or not self._cached_windows or 
-                current_time - self._last_refresh > self._refresh_interval):
-                self._cached_windows = self._get_windows_now()
-                self._last_refresh = current_time
+        try:
+            with self._lock:
+                current_time = time.time()
                 
-            return self._cached_windows.copy()
+                if (force_refresh or not self._cached_windows or 
+                    current_time - self._last_refresh > self._refresh_interval):
+                    self._cached_windows = self._get_windows_now()
+                    self._last_refresh = current_time
+                    
+                return self._cached_windows.copy()
+        except Exception as e:
+            log_exception(self.logger, e, "getting all windows")
+            raise WindowManagerError("Failed to get window list") from e
 
     def switch_to_window(self, handle: int) -> bool:
         try:
             if not win32gui.IsWindow(handle) or not win32gui.IsWindowVisible(handle):
+                self.logger.warning(f"Cannot switch to window {handle}: window is invalid or not visible")
                 return False
+
+            self.logger.debug(f"Switching to window {handle}")
 
             if win32gui.IsIconic(handle):
                 win32gui.ShowWindow(handle, win32con.SW_RESTORE)
@@ -182,11 +203,17 @@ class WindowManager:
                     win32gui.SetWindowPos(handle, win32con.HWND_TOP, 0, 0, 0, 0,
                                         win32con.SWP_NOMOVE | win32con.SWP_NOSIZE |
                                         win32con.SWP_SHOWWINDOW)
-                except:
-                    win32gui.ShowWindow(handle, win32con.SW_SHOW)
+                except Exception as pos_error:
+                    self.logger.warning(f"SetWindowPos failed for {handle}: {pos_error}")
+                    try:
+                        win32gui.ShowWindow(handle, win32con.SW_SHOW)
+                    except Exception as show_error:
+                        self.logger.error(f"ShowWindow fallback failed for {handle}: {show_error}")
+                        return False
 
+            self.logger.info(f"Successfully switched to window {handle}")
             return True
 
         except Exception as e:
-            print(f"Error switching to window {handle}: {e}")
+            log_exception(self.logger, e, f"switching to window {handle}")
             return False

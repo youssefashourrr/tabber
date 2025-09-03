@@ -7,11 +7,13 @@ from PyQt5.QtGui import QKeyEvent, QFocusEvent, QCloseEvent
 from window_manager import WindowManager
 from search_engine import search_windows
 from window import Window
+from logger import get_logger, log_exception, UIError, SearchEngineError, WindowManagerError
 
 
 class SearchUI(QWidget):
     def __init__(self):
         super().__init__()
+        self.logger = get_logger("search_ui")
         self.window_manager = WindowManager()
         
         self.window_manager.add_change_callback(self.on_windows_changed)
@@ -20,25 +22,32 @@ class SearchUI(QWidget):
         self.setup_style()
         self.setup_behavior()
         
+        self.logger.info("SearchUI initialized successfully")
+        
     def setup_ui(self) -> None:
-        main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(10, 10, 10, 10)
-        main_layout.setSpacing(5)
-        
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search windows...")
-        self.search_input.setMinimumHeight(45)
-        self.search_input.textChanged.connect(self.on_search_changed)
-        
-        self.results_list = QListWidget()
-        self.results_list.setMaximumHeight(300)
-        self.results_list.itemClicked.connect(self.on_item_clicked)
-        self.results_list.hide()
-        
-        main_layout.addWidget(self.search_input)
-        main_layout.addWidget(self.results_list)
-        
-        self.setLayout(main_layout)
+        try:
+            main_layout = QVBoxLayout()
+            main_layout.setContentsMargins(10, 10, 10, 10)
+            main_layout.setSpacing(5)
+            
+            self.search_input = QLineEdit()
+            self.search_input.setPlaceholderText("Search windows...")
+            self.search_input.setMinimumHeight(45)
+            self.search_input.textChanged.connect(self.on_search_changed)
+            
+            self.results_list = QListWidget()
+            self.results_list.setMaximumHeight(300)
+            self.results_list.itemClicked.connect(self.on_item_clicked)
+            self.results_list.hide()
+            
+            main_layout.addWidget(self.search_input)
+            main_layout.addWidget(self.results_list)
+            
+            self.setLayout(main_layout)
+            self.logger.debug("UI setup completed successfully")
+        except Exception as e:
+            log_exception(self.logger, e, "UI setup")
+            raise UIError("Failed to setup UI components") from e
         
     def setup_style(self) -> None:
         self.setStyleSheet("""
@@ -91,39 +100,62 @@ class SearchUI(QWidget):
         """)
         
     def setup_behavior(self) -> None:
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)  # type: ignore
-        self.setAttribute(Qt.WA_TranslucentBackground)  # type: ignore
-        self.setFocusPolicy(Qt.StrongFocus)  # type: ignore
-        
-        self.setFixedWidth(500)
-        self.resize(500, 55)
-        self.center_on_screen()
+        try:
+            self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)  # type: ignore
+            self.setAttribute(Qt.WA_TranslucentBackground)  # type: ignore
+            self.setFocusPolicy(Qt.StrongFocus)  # type: ignore
+            
+            self.setFixedWidth(500)
+            self.resize(500, 55)
+            self.center_on_screen()
+            self.logger.debug("UI behavior setup completed successfully")
+        except Exception as e:
+            log_exception(self.logger, e, "UI behavior setup")
+            raise UIError("Failed to setup UI behavior") from e
         
     def on_windows_changed(self) -> None:
-        if self.results_list.isVisible() and self.search_input.text().strip():
-            self.on_search_changed(self.search_input.text())
+        try:
+            if self.results_list.isVisible() and self.search_input.text().strip():
+                self.on_search_changed(self.search_input.text())
+        except Exception as e:
+            log_exception(self.logger, e, "window change callback")
+            self.results_list.hide()
+            self.resize(500, 55)
         
     def center_on_screen(self) -> None:
-        screen = QApplication.desktop().screenGeometry()  # type: ignore
-        size = self.geometry()
-        x = (screen.width() - size.width()) // 2
-        y = (screen.height() - size.height()) // 3
-        self.move(x, y)
+        try:
+            screen = QApplication.desktop().screenGeometry()  # type: ignore
+            size = self.geometry()
+            x = (screen.width() - size.width()) // 2
+            y = (screen.height() - size.height()) // 3
+            self.move(x, y)
+        except Exception as e:
+            self.logger.warning(f"Failed to center window on screen: {e}")
+            self.move(100, 100)
         
     def show_search(self) -> None:
-        self.search_input.clear()
-        self.results_list.clear()
-        self.results_list.hide()
-        self.resize(500, 55)
-        self.center_on_screen()
-        self.show()
-        self.activateWindow()
-        self.search_input.setFocus()
+        try:
+            self.logger.debug("Showing search UI")
+            self.search_input.clear()
+            self.results_list.clear()
+            self.results_list.hide()
+            self.resize(500, 55)
+            self.center_on_screen()
+            self.show()
+            self.activateWindow()
+            self.search_input.setFocus()
+        except Exception as e:
+            log_exception(self.logger, e, "showing search UI")
+            raise UIError("Failed to show search UI") from e
         
     def hide_search(self) -> None:
-        self.hide()
-        self.search_input.clear()
-        self.results_list.clear()
+        try:
+            self.hide()
+            self.search_input.clear()
+            self.results_list.clear()
+            self.logger.debug("Search UI hidden successfully")
+        except Exception as e:
+            self.logger.warning(f"Error hiding search UI: {e}")
         
     def on_search_changed(self, text: str) -> None:
         if not text.strip():
@@ -132,57 +164,86 @@ class SearchUI(QWidget):
             return
             
         try:
+            self.logger.debug(f"Search query changed: '{text}'")
             current_windows = self.window_manager.get_all_windows()
             results = search_windows(current_windows, text)
-            self.update_results(results[:8])
-        except Exception as e:
-            print(f"Error searching windows: {e}")
+            self.update_results(results[:3])
+        except (SearchEngineError, WindowManagerError) as e:
+            self.logger.error(f"Service error during search: {e}")
             self.results_list.hide()
             self.resize(500, 55)
+            raise
+        except Exception as e:
+            log_exception(self.logger, e, "search changed")
+            self.results_list.hide()
+            self.resize(500, 55)
+            raise UIError("Failed to process search query") from e
             
     def update_results(self, windows: List[Window]) -> None:
-        self.results_list.clear()
-        
-        if not windows:
+        try:
+            self.results_list.clear()
+            
+            if not windows:
+                self.results_list.hide()
+                self.resize(500, 55)
+                return
+                
+            for window in windows:
+                try:
+                    item_text = self.format_window_item(window)
+                    item = QListWidgetItem(item_text)
+                    item.setData(Qt.UserRole, window.handle)  # type: ignore
+                    self.results_list.addItem(item)
+                except Exception as e:
+                    self.logger.warning(f"Failed to create item for window {window.handle}: {e}")
+                    continue
+                
+            self.results_list.show()
+            item_height = 44
+            list_height = min(len(windows) * item_height + 10, 300)
+            total_height = 55 + list_height + 5
+            self.resize(500, total_height)
+            
+            if self.results_list.count() > 0:
+                self.results_list.setCurrentRow(0)
+        except Exception as e:
+            log_exception(self.logger, e, "updating results")
             self.results_list.hide()
             self.resize(500, 55)
-            return
-            
-        for window in windows:
-            item_text = self.format_window_item(window)
-            item = QListWidgetItem(item_text)
-            item.setData(Qt.UserRole, window.handle)  # type: ignore
-            self.results_list.addItem(item)
-            
-        self.results_list.show()
-        item_height = 44
-        list_height = min(len(windows) * item_height + 10, 300)
-        total_height = 55 + list_height + 5
-        self.resize(500, total_height)
-        
-        if self.results_list.count() > 0:
-            self.results_list.setCurrentRow(0)
             
     def format_window_item(self, window: Window) -> str:
-        title = window.title
-        if len(title) > 50:
-            title = title[:47] + "..."
-            
-        return title
+        try:
+            title = window.title
+            if len(title) > 50:
+                title = title[:47] + "..."
+                
+            return title
+        except Exception as e:
+            self.logger.warning(f"Error formatting window item for {window.handle}: {e}")
+            return f"Window {window.handle}"
         
     def on_item_clicked(self, item: QListWidgetItem) -> None:
-        window_handle = item.data(Qt.UserRole)  # type: ignore
-        self.switch_to_window(window_handle)
+        try:
+            window_handle = item.data(Qt.UserRole)  # type: ignore
+            if window_handle is not None:
+                self.switch_to_window(window_handle)
+            else:
+                self.logger.warning("No window handle found in clicked item")
+        except Exception as e:
+            log_exception(self.logger, e, "item click handling")
+            self.logger.error("Failed to handle item click")
         
     def switch_to_window(self, window_handle: int) -> None:
         try:
+            self.logger.debug(f"Attempting to switch to window {window_handle}")
             success = self.window_manager.switch_to_window(window_handle)
             if success:
                 self.hide_search()
+                self.logger.info(f"Successfully switched to window {window_handle}")
             else:
-                print(f"Failed to switch to window {window_handle}")
+                self.logger.warning(f"Failed to switch to window {window_handle}")
         except Exception as e:
-            print(f"Error switching to window: {e}")
+            log_exception(self.logger, e, f"switching to window {window_handle}")
             
     def keyPressEvent(self, event: QKeyEvent) -> None:  # type: ignore
         if event.key() == Qt.Key_Escape:  # type: ignore
@@ -213,12 +274,21 @@ class SearchUI(QWidget):
             super().keyPressEvent(event)
             
     def focusOutEvent(self, event: QFocusEvent) -> None:  # type: ignore
-        QTimer.singleShot(100, self.check_focus)
+        QTimer.singleShot(150, self.check_focus)
         
     def check_focus(self) -> None:
-        if not self.hasFocus() and not self.search_input.hasFocus() and not self.results_list.hasFocus():
+        try:
+            if not self.hasFocus() and not self.search_input.hasFocus() and not self.results_list.hasFocus():
+                self.hide_search()
+        except Exception as e:
+            self.logger.debug(f"Error checking focus: {e}")
             self.hide_search()
             
     def closeEvent(self, event: QCloseEvent) -> None:  # type: ignore
-        self.window_manager.remove_change_callback(self.on_windows_changed)
-        super().closeEvent(event)
+        try:
+            self.logger.info("SearchUI closing, cleaning up resources")
+            self.window_manager.remove_change_callback(self.on_windows_changed)
+            super().closeEvent(event)
+        except Exception as e:
+            log_exception(self.logger, e, "cleanup during close")
+            super().closeEvent(event)

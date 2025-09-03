@@ -4,31 +4,54 @@ from PyQt5.QtCore import QObject, pyqtSignal
 
 from search_ui import SearchUI
 from hotkey_listener import GlobalHotkeyListener
+from logger import get_logger, log_exception, HotkeyError, UIError
 
 
 def main():
+    logger = get_logger("main")
+    
     try:
+        logger.info("Starting Alt+Tab application")
+        
         app = QApplication(sys.argv)
         app.setQuitOnLastWindowClosed(False)
-        app.setApplicationName("Alt+Tab")
+        app.setApplicationName("Tabber")
         
-        search_ui = SearchUI()
+        try:
+            search_ui = SearchUI()
+            logger.info("SearchUI created successfully")
+        except UIError as e:
+            logger.error(f"Failed to create SearchUI: {e}")
+            raise
         
-        hotkey_listener = GlobalHotkeyListener()
-        hotkey_listener.hotkey_pressed.connect(search_ui.show_search)
-        hotkey_listener.start_listening()
+        try:
+            hotkey_listener = GlobalHotkeyListener()
+            hotkey_listener.hotkey_pressed.connect(search_ui.show_search)
+            hotkey_listener.start_listening()
+            logger.info("Hotkey listener configured successfully")
+        except HotkeyError as e:
+            logger.error(f"Failed to setup hotkey listener: {e}")
+            raise
         
-        print("Alt+Tab Replacement started. Press Alt+Space to activate search.")
+        logger.info("Tabber started successfully. Press Alt+Space to trigger.")
         
         def cleanup() -> None:
-            hotkey_listener.stop_listening()
-            search_ui.window_manager.stop_monitoring()
+            try:
+                logger.info("Shutting down application")
+                hotkey_listener.stop_listening()
+                search_ui.window_manager.stop_monitoring()
+                logger.info("Application cleanup completed")
+            except Exception as e:
+                log_exception(logger, e, "application cleanup")
             
         app.aboutToQuit.connect(cleanup)
         sys.exit(app.exec_())
         
+    except (UIError, HotkeyError) as e:
+        logger.critical(f"Critical component failure: {e}")
+        sys.exit(1)
     except Exception as e:
-        print(f"Error starting application: {e}")
+        log_exception(logger, e, "application startup")
         sys.exit(1)
 
 
