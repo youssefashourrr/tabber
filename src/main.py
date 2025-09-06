@@ -2,7 +2,7 @@ import sys
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from search_ui import SearchUI
+from searchbar import SearchBar
 from hotkey_listener import GlobalHotkeyListener
 from logger import get_logger, log_exception, HotkeyError, UIError
 
@@ -11,36 +11,37 @@ def main():
     logger = get_logger("main")
     
     try:
-        logger.info("Starting Alt+Tab application")
+        logger.info("Starting application")
         
         app = QApplication(sys.argv)
         app.setQuitOnLastWindowClosed(False)
         app.setApplicationName("Tabber")
         
         try:
-            search_ui = SearchUI()
-            logger.info("SearchUI created successfully")
+            searchbar = SearchBar()
+            logger.info("UI initialized")
         except UIError as e:
-            logger.error(f"Failed to create SearchUI: {e}")
+            logger.error(f"UI initialization failed: {e}")
             raise
         
         try:
             hotkey_listener = GlobalHotkeyListener()
-            hotkey_listener.hotkey_pressed.connect(search_ui.show_search)
+            hotkey_listener.hotkey_pressed.connect(searchbar.show_search)
+            hotkey_listener.quit_requested.connect(app.quit)
             hotkey_listener.start_listening()
-            logger.info("Hotkey listener configured successfully")
+            logger.info("Hotkey listener ready")
         except HotkeyError as e:
-            logger.error(f"Failed to setup hotkey listener: {e}")
+            logger.error(f"Hotkey setup failed: {e}")
             raise
         
-        logger.info("Tabber started successfully. Press Alt+Space to trigger.")
+        logger.info("Application ready (Alt+W to open, Alt+Ctrl+Q to quit)")
         
         def cleanup() -> None:
             try:
-                logger.info("Shutting down application")
+                logger.info("Shutting down")
                 hotkey_listener.stop_listening()
-                search_ui.window_manager.stop_monitoring()
-                logger.info("Application cleanup completed")
+                searchbar.window_manager.stop_monitoring()
+                logger.info("Cleanup complete")
             except Exception as e:
                 log_exception(logger, e, "application cleanup")
             
@@ -48,7 +49,7 @@ def main():
         sys.exit(app.exec_())
         
     except (UIError, HotkeyError) as e:
-        logger.critical(f"Critical component failure: {e}")
+        logger.critical(f"Component failure: {e}")
         sys.exit(1)
     except Exception as e:
         log_exception(logger, e, "application startup")

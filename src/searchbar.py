@@ -10,10 +10,10 @@ from window import Window
 from logger import get_logger, log_exception, UIError, SearchEngineError, WindowManagerError
 
 
-class SearchUI(QWidget):
+class SearchBar(QWidget):
     def __init__(self):
         super().__init__()
-        self.logger = get_logger("search_ui")
+        self.logger = get_logger("searchbar")
         self.window_manager = WindowManager()
         
         self.window_manager.add_change_callback(self.on_windows_changed)
@@ -22,7 +22,7 @@ class SearchUI(QWidget):
         self.setup_style()
         self.setup_behavior()
         
-        self.logger.info("SearchUI initialized successfully")
+        self.logger.info("Initialized")
         
     def setup_ui(self) -> None:
         try:
@@ -44,7 +44,7 @@ class SearchUI(QWidget):
             main_layout.addWidget(self.results_list)
             
             self.setLayout(main_layout)
-            self.logger.debug("UI setup completed successfully")
+            self.logger.debug("UI setup complete")
         except Exception as e:
             log_exception(self.logger, e, "UI setup")
             raise UIError("Failed to setup UI components") from e
@@ -108,7 +108,7 @@ class SearchUI(QWidget):
             self.setFixedWidth(500)
             self.resize(500, 55)
             self.center_on_screen()
-            self.logger.debug("UI behavior setup completed successfully")
+            self.logger.debug("Behavior setup complete")
         except Exception as e:
             log_exception(self.logger, e, "UI behavior setup")
             raise UIError("Failed to setup UI behavior") from e
@@ -130,12 +130,12 @@ class SearchUI(QWidget):
             y = (screen.height() - size.height()) // 3
             self.move(x, y)
         except Exception as e:
-            self.logger.warning(f"Failed to center window on screen: {e}")
+            self.logger.warning(f"Center failed: {e}")
             self.move(100, 100)
         
     def show_search(self) -> None:
         try:
-            self.logger.debug("Showing search UI")
+            self.logger.debug("Showing UI")
             self.search_input.clear()
             self.results_list.clear()
             self.results_list.hide()
@@ -146,16 +146,16 @@ class SearchUI(QWidget):
             self.search_input.setFocus()
         except Exception as e:
             log_exception(self.logger, e, "showing search UI")
-            raise UIError("Failed to show search UI") from e
+            raise UIError("Failed to show search bar") from e
         
     def hide_search(self) -> None:
         try:
             self.hide()
             self.search_input.clear()
             self.results_list.clear()
-            self.logger.debug("Search UI hidden successfully")
+            self.logger.debug("Hidden")
         except Exception as e:
-            self.logger.warning(f"Error hiding search UI: {e}")
+            self.logger.warning(f"Hide failed: {e}")
         
     def on_search_changed(self, text: str) -> None:
         if not text.strip():
@@ -164,12 +164,12 @@ class SearchUI(QWidget):
             return
             
         try:
-            self.logger.debug(f"Search query changed: '{text}'")
+            self.logger.debug(f"Searching: '{text}'")
             current_windows = self.window_manager.get_all_windows()
             results = search_windows(current_windows, text)
             self.update_results(results[:3])
         except (SearchEngineError, WindowManagerError) as e:
-            self.logger.error(f"Service error during search: {e}")
+            self.logger.error(f"Search failed: {e}")
             self.results_list.hide()
             self.resize(500, 55)
             raise
@@ -195,7 +195,7 @@ class SearchUI(QWidget):
                     item.setData(Qt.UserRole, window.handle)  # type: ignore
                     self.results_list.addItem(item)
                 except Exception as e:
-                    self.logger.warning(f"Failed to create item for window {window.handle}: {e}")
+                    self.logger.warning(f"Item creation failed: {e}")
                     continue
                 
             self.results_list.show()
@@ -219,7 +219,7 @@ class SearchUI(QWidget):
                 
             return title
         except Exception as e:
-            self.logger.warning(f"Error formatting window item for {window.handle}: {e}")
+            self.logger.warning(f"Format failed: {e}")
             return f"Window {window.handle}"
         
     def on_item_clicked(self, item: QListWidgetItem) -> None:
@@ -228,20 +228,20 @@ class SearchUI(QWidget):
             if window_handle is not None:
                 self.switch_to_window(window_handle)
             else:
-                self.logger.warning("No window handle found in clicked item")
+                self.logger.warning("No window handle in item")
         except Exception as e:
             log_exception(self.logger, e, "item click handling")
-            self.logger.error("Failed to handle item click")
+            self.logger.error("Item click failed")
         
     def switch_to_window(self, window_handle: int) -> None:
         try:
-            self.logger.debug(f"Attempting to switch to window {window_handle}")
+            self.logger.debug(f"Switching to {window_handle}")
             success = self.window_manager.switch_to_window(window_handle)
             if success:
                 self.hide_search()
-                self.logger.info(f"Successfully switched to window {window_handle}")
+                self.logger.info(f"Switched to {window_handle}")
             else:
-                self.logger.warning(f"Failed to switch to window {window_handle}")
+                self.logger.warning(f"Switch failed: {window_handle}")
         except Exception as e:
             log_exception(self.logger, e, f"switching to window {window_handle}")
             
@@ -281,12 +281,12 @@ class SearchUI(QWidget):
             if not self.hasFocus() and not self.search_input.hasFocus() and not self.results_list.hasFocus():
                 self.hide_search()
         except Exception as e:
-            self.logger.debug(f"Error checking focus: {e}")
+            self.logger.debug(f"Focus check failed: {e}")
             self.hide_search()
             
     def closeEvent(self, event: QCloseEvent) -> None:  # type: ignore
         try:
-            self.logger.info("SearchUI closing, cleaning up resources")
+            self.logger.info("Closing, cleaning up")
             self.window_manager.remove_change_callback(self.on_windows_changed)
             super().closeEvent(event)
         except Exception as e:

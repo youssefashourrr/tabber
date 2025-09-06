@@ -7,13 +7,14 @@ from logger import get_logger, log_exception, HotkeyError
 
 class GlobalHotkeyListener(QObject):
     hotkey_pressed = pyqtSignal()
+    quit_requested = pyqtSignal()
     
     def __init__(self):
         try:
             super().__init__()
             self.logger = get_logger("hotkey_listener")
             self.listener: Optional[keyboard.Listener] = None
-            self.logger.info("GlobalHotkeyListener initialized successfully")
+            self.logger.info("Initialized")
         except Exception as e:
             logger = get_logger("hotkey_listener")
             log_exception(logger, e, "hotkey listener initialization")
@@ -21,28 +22,35 @@ class GlobalHotkeyListener(QObject):
         
     def start_listening(self) -> None:
         try:
-            self.logger.info("Starting hotkey listener for Alt+Space")
+            self.logger.info("Starting listener (Alt+W, Alt+Ctrl+Q)")
             
             if self.listener is not None:
-                self.logger.warning("Hotkey listener is already running")
+                self.logger.warning("Already running")
                 return
             
-            hotkey = keyboard.HotKey(
-                keyboard.HotKey.parse('<alt>+<space>'),
-                self.on_hotkey_pressed
+            show_hotkey = keyboard.HotKey(
+                keyboard.HotKey.parse('<alt>+w'),
+                self.on_show_pressed
+            )
+            
+            quit_hotkey = keyboard.HotKey(
+                keyboard.HotKey.parse('<alt>+<ctrl>+q'),
+                self.on_quit_pressed
             )
             
             def on_press(key: Optional[Union[keyboard.Key, keyboard.KeyCode]]) -> None:
                 if key is not None:
                     try:
-                        hotkey.press(listener.canonical(key))
+                        show_hotkey.press(listener.canonical(key))
+                        quit_hotkey.press(listener.canonical(key))
                     except Exception as e:
                         self.logger.debug(f"Error in hotkey press handler: {e}")
                 
             def on_release(key: Optional[Union[keyboard.Key, keyboard.KeyCode]]) -> None:
                 if key is not None:
                     try:
-                        hotkey.release(listener.canonical(key))
+                        show_hotkey.release(listener.canonical(key))
+                        quit_hotkey.release(listener.canonical(key))
                     except Exception as e:
                         self.logger.debug(f"Error in hotkey release handler: {e}")
             
@@ -52,26 +60,34 @@ class GlobalHotkeyListener(QObject):
             )
             self.listener = listener
             self.listener.start()
-            self.logger.info("Hotkey listener started successfully")
+            self.logger.info("Started successfully")
             
         except Exception as e:
             log_exception(self.logger, e, "starting hotkey listener")
             raise HotkeyError("Failed to start hotkey listener") from e
         
-    def on_hotkey_pressed(self) -> None:
+    def on_show_pressed(self) -> None:
         try:
-            self.logger.debug("Hotkey Alt+Space pressed")
+            self.logger.debug("Alt+W pressed")
             self.hotkey_pressed.emit()
         except Exception as e:
             log_exception(self.logger, e, "hotkey press signal emission")
-            self.logger.error("Failed to emit hotkey pressed signal")
+            self.logger.error("Signal emission failed")
+    
+    def on_quit_pressed(self) -> None:
+        try:
+            self.logger.info("Alt+Ctrl+Q pressed - shutting down")
+            self.quit_requested.emit()
+        except Exception as e:
+            log_exception(self.logger, e, "quit hotkey press signal emission")
+            self.logger.error("Quit signal failed")
         
     def stop_listening(self) -> None:
         try:
             if self.listener:
-                self.logger.info("Stopping hotkey listener")
+                self.logger.info("Stopping listener")
                 self.listener.stop()
                 self.listener = None
-                self.logger.info("Hotkey listener stopped successfully")
+                self.logger.info("Stopped")
         except Exception as e:
             log_exception(self.logger, e, "stopping hotkey listener")

@@ -27,7 +27,7 @@ def _calculate_score(window: Window, query: str) -> float:
         return final_score
     except Exception as e:
         logger = get_logger("search_engine")
-        logger.warning(f"Error calculating score for window '{window.title}': {e}")
+        logger.warning(f"Score calculation failed '{window.title}': {e}")
         return 0.0
 
 
@@ -35,15 +35,15 @@ def search_windows(windows: List[Window], query: str, min_score: float = 0.0) ->
     logger = get_logger("search_engine")
     
     if not query or not query.strip():
-        logger.debug("Empty query provided, returning all windows")
+        logger.debug("Empty query, returning all windows")
         return windows
     
     if not windows:
-        logger.debug("No windows provided for search")
+        logger.debug("No windows to search")
         return []
     
     try:
-        logger.debug(f"Searching {len(windows)} windows with query: '{query}'")
+        logger.debug(f"Searching {len(windows)} windows: '{query}'")
         scored_windows: List[Tuple[Window, float]] = []
         
         for window in windows:
@@ -52,13 +52,13 @@ def search_windows(windows: List[Window], query: str, min_score: float = 0.0) ->
                 if score >= min_score:
                     scored_windows.append((window, score))
             except Exception as e:
-                logger.warning(f"Failed to score window {window.handle} '{window.title}': {e}")
+                logger.warning(f"Window scoring failed {window.handle}: {e}")
                 continue
         
         scored_windows.sort(key=lambda x: x[1], reverse=True)
         
         result = [window for window, score in scored_windows]
-        logger.debug(f"Search returned {len(result)} matching windows")
+        logger.debug(f"Found {len(result)} matches")
         return result
         
     except Exception as e:

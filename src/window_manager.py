@@ -49,7 +49,7 @@ class WindowManager:
     def _initial_load(self):
         try:
             self.get_all_windows(force_refresh=True)
-            self.logger.info("Initial window load completed successfully")
+            self.logger.info("Initial load complete")
         except Exception as e:
             log_exception(self.logger, e, "initial window load")
             raise WindowManagerError("Failed to load initial windows") from e
@@ -76,19 +76,19 @@ class WindowManager:
                 return False
 
             if not win32gui.IsIconic(handle):
-                try:
-                    rect = win32gui.GetWindowRect(handle)
-                    width, height = rect[2] - rect[0], rect[3] - rect[1]
-                    if width < MIN_WINDOW_WIDTH or height < MIN_WINDOW_HEIGHT:
+                    try:
+                        rect = win32gui.GetWindowRect(handle)
+                        width, height = rect[2] - rect[0], rect[3] - rect[1]
+                        if width < MIN_WINDOW_WIDTH or height < MIN_WINDOW_HEIGHT:
+                            return False
+                    except Exception as e:
+                        self.logger.debug(f"Rect check failed {handle}: {e}")
                         return False
-                except Exception as e:
-                    self.logger.debug(f"Failed to get window rect for {handle}: {e}")
-                    return False
 
             return True
             
         except Exception as e:
-            self.logger.debug(f"Error checking window {handle}: {e}")
+            self.logger.debug(f"Window check failed {handle}: {e}")
             return False
 
     def add_change_callback(self, callback: Callable[[], None]) -> None:
@@ -107,7 +107,7 @@ class WindowManager:
                 
     def _start_monitoring(self) -> None:
         def monitor_thread():
-            self.logger.debug("Window monitoring thread started")
+            self.logger.debug("Monitor thread started")
             while not self._stop_monitoring:
                 try:
                     time.sleep(self._refresh_interval)
@@ -121,7 +121,7 @@ class WindowManager:
                         new_count = len(self._cached_windows)
                         
                         if old_count != new_count:
-                            self.logger.debug(f"Window count changed: {old_count} -> {new_count}")
+                            self.logger.debug(f"Window count: {old_count} -> {new_count}")
                             self._notify_change_callbacks()
                             
                 except Exception as e:
@@ -133,12 +133,12 @@ class WindowManager:
         self._monitoring_thread.start()
         
     def stop_monitoring(self):
-        self.logger.info("Stopping window monitoring")
+        self.logger.info("Stopping monitor")
         self._stop_monitoring = True
         if self._monitoring_thread:
             self._monitoring_thread.join(timeout=1)
             if self._monitoring_thread.is_alive():
-                self.logger.warning("Window monitoring thread did not stop gracefully")
+                self.logger.warning("Monitor thread did not stop gracefully")
         
     def _get_windows_now(self) -> List[Window]:
         windows = []
@@ -155,9 +155,9 @@ class WindowManager:
                         if self._should_include_window(handle, process_name):
                             windows.append(Window(handle, title, pid, process_name))
                     except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess) as e:
-                        self.logger.debug(f"Process access error for PID {handle}: {type(e).__name__}")
+                        self.logger.debug(f"Process access denied {handle}: {type(e).__name__}")
                     except Exception as e:
-                        self.logger.warning(f"Unexpected error processing window {handle}: {e}")
+                        self.logger.warning(f"Process error {handle}: {e}")
             return True
 
         try:
@@ -186,10 +186,10 @@ class WindowManager:
     def switch_to_window(self, handle: int) -> bool:
         try:
             if not win32gui.IsWindow(handle) or not win32gui.IsWindowVisible(handle):
-                self.logger.warning(f"Cannot switch to window {handle}: window is invalid or not visible")
+                self.logger.warning(f"Invalid window {handle}")
                 return False
 
-            self.logger.debug(f"Switching to window {handle}")
+            self.logger.debug(f"Switching to {handle}")
 
             if win32gui.IsIconic(handle):
                 win32gui.ShowWindow(handle, win32con.SW_RESTORE)
@@ -204,14 +204,14 @@ class WindowManager:
                                         win32con.SWP_NOMOVE | win32con.SWP_NOSIZE |
                                         win32con.SWP_SHOWWINDOW)
                 except Exception as pos_error:
-                    self.logger.warning(f"SetWindowPos failed for {handle}: {pos_error}")
+                    self.logger.warning(f"SetWindowPos failed {handle}: {pos_error}")
                     try:
                         win32gui.ShowWindow(handle, win32con.SW_SHOW)
                     except Exception as show_error:
-                        self.logger.error(f"ShowWindow fallback failed for {handle}: {show_error}")
+                        self.logger.error(f"ShowWindow failed {handle}: {show_error}")
                         return False
 
-            self.logger.info(f"Successfully switched to window {handle}")
+            self.logger.info(f"Switched to {handle}")
             return True
 
         except Exception as e:

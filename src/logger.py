@@ -101,7 +101,7 @@ class UIError(AppError):
 
 def log_exception(logger: logging.Logger, exception: Exception, context: str = "") -> None:
     context_str = f" [{context}]" if context else ""
-    logger.error(f"Exception occurred{context_str}: {type(exception).__name__}: {exception}", exc_info=True)
+    logger.error(f"Exception{context_str}: {type(exception).__name__}: {exception}", exc_info=True)
 
 
 main_logger = setup_logging()
