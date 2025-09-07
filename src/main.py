@@ -17,19 +17,13 @@ def main():
         app.setQuitOnLastWindowClosed(False)
         app.setApplicationName("Tabber")
         
-        try:
-            searchbar = SearchBar()
-            logger.info("UI initialized")
-        except UIError as e:
-            logger.error(f"UI initialization failed: {e}")
-            raise
-        
+        searchbar = SearchBar()
+
         try:
             hotkey_listener = GlobalHotkeyListener()
             hotkey_listener.hotkey_pressed.connect(searchbar.show_search)
             hotkey_listener.quit_requested.connect(app.quit)
             hotkey_listener.start_listening()
-            logger.info("Hotkey listener ready")
         except HotkeyError as e:
             logger.error(f"Hotkey setup failed: {e}")
             raise
@@ -39,10 +33,10 @@ def main():
         def cleanup() -> None:
             """Handles application cleanup when shutting down."""
             try:
-                logger.info("Shutting down")
+                logger.info("Application shutting down")
                 hotkey_listener.stop_listening()
                 searchbar.window_manager.stop_monitoring()
-                logger.info("Cleanup complete")
+                logger.debug("Application cleanup complete")
             except Exception as e:
                 log_exception(logger, e, "application cleanup")
             
@@ -50,7 +44,7 @@ def main():
         sys.exit(app.exec_())
         
     except (UIError, HotkeyError) as e:
-        logger.critical(f"Component failure: {e}")
+        logger.error(f"Component failure: {e}")
         sys.exit(1)
     except Exception as e:
         log_exception(logger, e, "application startup")

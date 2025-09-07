@@ -10,11 +10,9 @@ class CustomFormatter(logging.Formatter):
     """Custom formatter that adds color coding to log levels."""
     
     COLORS = {
-        'DEBUG': '\033[36m',
+        'DEBUG': '\033[37m',
         'INFO': '\033[32m',
-        'WARNING': '\033[33m',
         'ERROR': '\033[31m',
-        'CRITICAL': '\033[35m',
         'RESET': '\033[0m'
     }
     
@@ -28,7 +26,7 @@ class CustomFormatter(logging.Formatter):
 
 def setup_logging(
     name: str = "app",
-    level: str = "INFO",
+    level: str = "DEBUG",
     log_to_file: bool = True,
     log_to_console: bool = True,
     log_dir: Optional[str] = None
@@ -84,7 +82,7 @@ def get_logger(name: Optional[str] = None) -> logging.Logger:
 
 
 class AppError(Exception):
-    """Base exception class for application-specific errors."""
+    """Base exception class for application errors."""
     pass
 
 

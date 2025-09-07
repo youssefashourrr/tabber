@@ -15,15 +15,19 @@ class SearchBar(QWidget):
     def __init__(self):
         super().__init__()
         self.logger = get_logger("searchbar")
-        self.window_manager = WindowManager()
         
-        self.window_manager.add_change_callback(self.on_windows_changed)
-        
-        self.setup_ui()
-        self.setup_style()
-        self.setup_behavior()
-        
-        self.logger.info("Initialized")
+        try:
+            self.window_manager = WindowManager()
+            self.window_manager.add_change_callback(self.on_windows_changed)
+            
+            self.setup_ui()
+            self.setup_style()
+            self.setup_behavior()
+            
+            self.logger.debug("Search bar initialized")
+        except Exception as e:
+            log_exception(self.logger, e, "searchbar initialization")
+            raise UIError("Failed to initialize search bar") from e
         
     def setup_ui(self) -> None:
         """Sets up the UI components including search input and results list."""
@@ -136,13 +140,13 @@ class SearchBar(QWidget):
             y = (screen.height() - size.height()) // 3
             self.move(x, y)
         except Exception as e:
-            self.logger.warning(f"Center failed: {e}")
+            self.logger.error(f"Failed to center on screen: {e}")
             self.move(100, 100)
         
     def show_search(self) -> None:
         """Shows the search bar and prepares it for user input."""
         try:
-            self.logger.debug("Showing UI")
+            self.logger.info("Search bar shown")
             self.search_input.clear()
             self.results_list.clear()
             self.results_list.hide()
@@ -157,13 +161,10 @@ class SearchBar(QWidget):
         
     def hide_search(self) -> None:
         """Hides the search bar and clears its contents."""
-        try:
-            self.hide()
-            self.search_input.clear()
-            self.results_list.clear()
-            self.logger.debug("Hidden")
-        except Exception as e:
-            self.logger.warning(f"Hide failed: {e}")
+        self.hide()
+        self.search_input.clear()
+        self.results_list.clear()
+        self.logger.info("Search bar hidden")
         
     def on_search_changed(self, text: str) -> None:
         """Handles search input changes and updates results display."""
@@ -205,7 +206,7 @@ class SearchBar(QWidget):
                     item.setData(Qt.UserRole, window.handle)  # type: ignore
                     self.results_list.addItem(item)
                 except Exception as e:
-                    self.logger.warning(f"Item creation failed: {e}")
+                    self.logger.error(f"Failed to create list item for window {window.handle}: {e}")
                     continue
                 
             self.results_list.show()
@@ -227,10 +228,9 @@ class SearchBar(QWidget):
             title = window.title
             if len(title) > 50:
                 title = title[:47] + "..."
-                
             return title
         except Exception as e:
-            self.logger.warning(f"Format failed: {e}")
+            self.logger.error(f"Failed to format window item: {e}")
             return f"Window {window.handle}"
         
     def on_item_clicked(self, item: QListWidgetItem) -> None:
@@ -240,21 +240,20 @@ class SearchBar(QWidget):
             if window_handle is not None:
                 self.switch_to_window(window_handle)
             else:
-                self.logger.warning("No window handle in item")
+                self.logger.debug("No window handle in item data")
         except Exception as e:
             log_exception(self.logger, e, "item click handling")
-            self.logger.error("Item click failed")
         
     def switch_to_window(self, window_handle: int) -> None:
         """Switches to the specified window using the window manager."""
         try:
-            self.logger.debug(f"Switching to {window_handle}")
+            self.logger.debug(f"Switching to window {window_handle}")
             success = self.window_manager.switch_to_window(window_handle)
             if success:
                 self.hide_search()
-                self.logger.info(f"Switched to {window_handle}")
+                self.logger.info(f"Switched to window {window_handle}")
             else:
-                self.logger.warning(f"Switch failed: {window_handle}")
+                self.logger.error(f"Failed to switch to window {window_handle}")
         except Exception as e:
             log_exception(self.logger, e, f"switching to window {window_handle}")
             
@@ -297,13 +296,13 @@ class SearchBar(QWidget):
             if not self.hasFocus() and not self.search_input.hasFocus() and not self.results_list.hasFocus():
                 self.hide_search()
         except Exception as e:
-            self.logger.debug(f"Focus check failed: {e}")
+            self.logger.error(f"Focus check failed: {e}")
             self.hide_search()
             
     def closeEvent(self, event: QCloseEvent) -> None:  # type: ignore
         """Handles application close event and performs cleanup."""
         try:
-            self.logger.info("Closing, cleaning up")
+            self.logger.debug("Search bar closing")
             self.window_manager.remove_change_callback(self.on_windows_changed)
             super().closeEvent(event)
         except Exception as e:
