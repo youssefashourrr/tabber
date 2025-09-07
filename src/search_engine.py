@@ -6,6 +6,7 @@ from logger import get_logger, log_exception, SearchEngineError
 
 
 def _calculate_score(window: Window, query: str) -> float:
+    """Calculates a relevance score for a window based on the search query."""
     try:
         if not query.strip():
             return 0.0
@@ -32,6 +33,7 @@ def _calculate_score(window: Window, query: str) -> float:
 
 
 def search_windows(windows: List[Window], query: str, min_score: float = 0.0) -> List[Window]:
+    """Searches and ranks windows by relevance to the query string."""
     logger = get_logger("search_engine")
     
     if not query or not query.strip():

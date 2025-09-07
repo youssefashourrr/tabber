@@ -6,6 +6,7 @@ from logger import get_logger, log_exception, HotkeyError
 
 
 class GlobalHotkeyListener(QObject):
+    """Handles global hotkey detection for Alt+W (show) and Alt+Ctrl+Q (quit)."""
     hotkey_pressed = pyqtSignal()
     quit_requested = pyqtSignal()
     
@@ -21,6 +22,7 @@ class GlobalHotkeyListener(QObject):
             raise HotkeyError("Failed to initialize hotkey listener") from e
         
     def start_listening(self) -> None:
+        """Starts the global hotkey listener."""
         try:
             self.logger.info("Starting listener (Alt+W, Alt+Ctrl+Q)")
             
@@ -39,6 +41,7 @@ class GlobalHotkeyListener(QObject):
             )
             
             def on_press(key: Optional[Union[keyboard.Key, keyboard.KeyCode]]) -> None:
+                """Handles key press events."""
                 if key is not None:
                     try:
                         show_hotkey.press(listener.canonical(key))
@@ -47,6 +50,7 @@ class GlobalHotkeyListener(QObject):
                         self.logger.debug(f"Error in hotkey press handler: {e}")
                 
             def on_release(key: Optional[Union[keyboard.Key, keyboard.KeyCode]]) -> None:
+                """Handles key release events."""
                 if key is not None:
                     try:
                         show_hotkey.release(listener.canonical(key))
@@ -67,6 +71,7 @@ class GlobalHotkeyListener(QObject):
             raise HotkeyError("Failed to start hotkey listener") from e
         
     def on_show_pressed(self) -> None:
+        """Emits signal when Alt+W is pressed to show search bar."""
         try:
             self.logger.debug("Alt+W pressed")
             self.hotkey_pressed.emit()
@@ -75,6 +80,7 @@ class GlobalHotkeyListener(QObject):
             self.logger.error("Signal emission failed")
     
     def on_quit_pressed(self) -> None:
+        """Emits signal when Alt+Ctrl+Q is pressed to quit application."""
         try:
             self.logger.info("Alt+Ctrl+Q pressed - shutting down")
             self.quit_requested.emit()
@@ -83,6 +89,7 @@ class GlobalHotkeyListener(QObject):
             self.logger.error("Quit signal failed")
         
     def stop_listening(self) -> None:
+        """Stops the global hotkey listener and cleans up resources."""
         try:
             if self.listener:
                 self.logger.info("Stopping listener")

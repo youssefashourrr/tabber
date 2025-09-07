@@ -7,6 +7,7 @@ from typing import Optional
 
 
 class CustomFormatter(logging.Formatter):
+    """Custom formatter that adds color coding to log levels."""
     
     COLORS = {
         'DEBUG': '\033[36m',
@@ -18,6 +19,7 @@ class CustomFormatter(logging.Formatter):
     }
     
     def format(self, record):
+        """Formats log records with color coding for console output."""
         if hasattr(record, 'levelname'):
             color = self.COLORS.get(record.levelname, self.COLORS['RESET'])
             record.levelname = f"{color}{record.levelname}{self.COLORS['RESET']}"
@@ -31,6 +33,7 @@ def setup_logging(
     log_to_console: bool = True,
     log_dir: Optional[str] = None
 ) -> logging.Logger:
+    """Sets up logging configuration with file and console handlers."""
     
     logger = logging.getLogger(name)
     logger.setLevel(getattr(logging, level.upper()))
@@ -74,32 +77,39 @@ def setup_logging(
 
 
 def get_logger(name: Optional[str] = None) -> logging.Logger:
+    """Returns a logger instance with the specified name."""
     if name:
         return logging.getLogger(f"app.{name}")
     return logging.getLogger("app")
 
 
 class AppError(Exception):
+    """Base exception class for application-specific errors."""
     pass
 
 
 class WindowManagerError(AppError):
+    """Exception raised for window management related errors."""
     pass
 
 
 class SearchEngineError(AppError):
+    """Exception raised for search engine related errors."""
     pass
 
 
 class HotkeyError(AppError):
+    """Exception raised for hotkey listener related errors."""
     pass
 
 
 class UIError(AppError):
+    """Exception raised for user interface related errors."""
     pass
 
 
 def log_exception(logger: logging.Logger, exception: Exception, context: str = "") -> None:
+    """Logs an exception with optional context information."""
     context_str = f" [{context}]" if context else ""
     logger.error(f"Exception{context_str}: {type(exception).__name__}: {exception}", exc_info=True)
 

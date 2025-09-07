@@ -11,6 +11,7 @@ from logger import get_logger, log_exception, UIError, SearchEngineError, Window
 
 
 class SearchBar(QWidget):
+    """Main UI widget that provides a search interface for window switching."""
     def __init__(self):
         super().__init__()
         self.logger = get_logger("searchbar")
@@ -25,6 +26,7 @@ class SearchBar(QWidget):
         self.logger.info("Initialized")
         
     def setup_ui(self) -> None:
+        """Sets up the UI components including search input and results list."""
         try:
             main_layout = QVBoxLayout()
             main_layout.setContentsMargins(10, 10, 10, 10)
@@ -50,6 +52,7 @@ class SearchBar(QWidget):
             raise UIError("Failed to setup UI components") from e
         
     def setup_style(self) -> None:
+        """Applies modern styling to the search bar components."""
         self.setStyleSheet("""
             QWidget {
                 background-color: rgba(45, 45, 45, 240);
@@ -100,6 +103,7 @@ class SearchBar(QWidget):
         """)
         
     def setup_behavior(self) -> None:
+        """Configures window behavior including always on top and transparency."""
         try:
             self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)  # type: ignore
             self.setAttribute(Qt.WA_TranslucentBackground)  # type: ignore
@@ -114,6 +118,7 @@ class SearchBar(QWidget):
             raise UIError("Failed to setup UI behavior") from e
         
     def on_windows_changed(self) -> None:
+        """Refreshes search results when window list changes."""
         try:
             if self.results_list.isVisible() and self.search_input.text().strip():
                 self.on_search_changed(self.search_input.text())
@@ -123,6 +128,7 @@ class SearchBar(QWidget):
             self.resize(500, 55)
         
     def center_on_screen(self) -> None:
+        """Centers the search bar on the primary screen."""
         try:
             screen = QApplication.desktop().screenGeometry()  # type: ignore
             size = self.geometry()
@@ -134,6 +140,7 @@ class SearchBar(QWidget):
             self.move(100, 100)
         
     def show_search(self) -> None:
+        """Shows the search bar and prepares it for user input."""
         try:
             self.logger.debug("Showing UI")
             self.search_input.clear()
@@ -149,6 +156,7 @@ class SearchBar(QWidget):
             raise UIError("Failed to show search bar") from e
         
     def hide_search(self) -> None:
+        """Hides the search bar and clears its contents."""
         try:
             self.hide()
             self.search_input.clear()
@@ -158,6 +166,7 @@ class SearchBar(QWidget):
             self.logger.warning(f"Hide failed: {e}")
         
     def on_search_changed(self, text: str) -> None:
+        """Handles search input changes and updates results display."""
         if not text.strip():
             self.results_list.hide()
             self.resize(500, 55)
@@ -180,6 +189,7 @@ class SearchBar(QWidget):
             raise UIError("Failed to process search query") from e
             
     def update_results(self, windows: List[Window]) -> None:
+        """Updates the results list with matching windows."""
         try:
             self.results_list.clear()
             
@@ -212,6 +222,7 @@ class SearchBar(QWidget):
             self.resize(500, 55)
             
     def format_window_item(self, window: Window) -> str:
+        """Formats a window title for display in the results list."""
         try:
             title = window.title
             if len(title) > 50:
@@ -223,6 +234,7 @@ class SearchBar(QWidget):
             return f"Window {window.handle}"
         
     def on_item_clicked(self, item: QListWidgetItem) -> None:
+        """Handles mouse clicks on window items in the results list."""
         try:
             window_handle = item.data(Qt.UserRole)  # type: ignore
             if window_handle is not None:
@@ -234,6 +246,7 @@ class SearchBar(QWidget):
             self.logger.error("Item click failed")
         
     def switch_to_window(self, window_handle: int) -> None:
+        """Switches to the specified window using the window manager."""
         try:
             self.logger.debug(f"Switching to {window_handle}")
             success = self.window_manager.switch_to_window(window_handle)
@@ -246,6 +259,7 @@ class SearchBar(QWidget):
             log_exception(self.logger, e, f"switching to window {window_handle}")
             
     def keyPressEvent(self, event: QKeyEvent) -> None:  # type: ignore
+        """Handles keyboard events for navigation and actions."""
         if event.key() == Qt.Key_Escape:  # type: ignore
             self.hide_search()
             
@@ -274,9 +288,11 @@ class SearchBar(QWidget):
             super().keyPressEvent(event)
             
     def focusOutEvent(self, event: QFocusEvent) -> None:  # type: ignore
+        """Handles focus loss events to auto-hide the search bar."""
         QTimer.singleShot(150, self.check_focus)
         
     def check_focus(self) -> None:
+        """Checks if any part of the search bar has focus and hides if not."""
         try:
             if not self.hasFocus() and not self.search_input.hasFocus() and not self.results_list.hasFocus():
                 self.hide_search()
@@ -285,6 +301,7 @@ class SearchBar(QWidget):
             self.hide_search()
             
     def closeEvent(self, event: QCloseEvent) -> None:  # type: ignore
+        """Handles application close event and performs cleanup."""
         try:
             self.logger.info("Closing, cleaning up")
             self.window_manager.remove_change_callback(self.on_windows_changed)

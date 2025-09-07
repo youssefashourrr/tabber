@@ -37,6 +37,7 @@ def main():
         logger.info("Application ready (Alt+W to open, Alt+Ctrl+Q to quit)")
         
         def cleanup() -> None:
+            """Handles application cleanup when shutting down."""
             try:
                 logger.info("Shutting down")
                 hotkey_listener.stop_listening()

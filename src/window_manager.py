@@ -31,6 +31,7 @@ MIN_WINDOW_HEIGHT = 50
 
 
 class WindowManager:
+    """Manages window enumeration, filtering, and interaction on Windows."""
 
     def __init__(self, auto_start_monitoring: bool = True):
         self.logger = get_logger("window_manager")
@@ -47,6 +48,7 @@ class WindowManager:
             self._initial_load()
         
     def _initial_load(self):
+        """Performs initial loading of windows during startup."""
         try:
             self.get_all_windows(force_refresh=True)
             self.logger.info("Initial load complete")
@@ -55,6 +57,7 @@ class WindowManager:
             raise WindowManagerError("Failed to load initial windows") from e
 
     def _should_include_window(self, handle: int, process_name: str) -> bool:
+        """Determines if a window should be included in the window list."""
         try:
             ex_style = win32gui.GetWindowLong(handle, win32con.GWL_EXSTYLE)
             if ex_style & (win32con.WS_EX_TOOLWINDOW | win32con.WS_EX_NOACTIVATE):
@@ -92,13 +95,16 @@ class WindowManager:
             return False
 
     def add_change_callback(self, callback: Callable[[], None]) -> None:
+        """Adds a callback function to be called when window list changes."""
         self._change_callbacks.append(callback)
         
     def remove_change_callback(self, callback: Callable[[], None]) -> None:
+        """Removes a previously added window change callback."""
         if callback in self._change_callbacks:
             self._change_callbacks.remove(callback)
             
     def _notify_change_callbacks(self) -> None:
+        """Notifies all registered callbacks about window list changes."""
         for callback in self._change_callbacks:
             try:
                 callback()
@@ -106,7 +112,9 @@ class WindowManager:
                 log_exception(self.logger, e, "window change callback")
                 
     def _start_monitoring(self) -> None:
+        """Starts a background thread to monitor window changes."""
         def monitor_thread():
+            """Background thread task that monitors window changes."""
             self.logger.debug("Monitor thread started")
             while not self._stop_monitoring:
                 try:
@@ -133,6 +141,7 @@ class WindowManager:
         self._monitoring_thread.start()
         
     def stop_monitoring(self):
+        """Stops the window monitoring thread."""
         self.logger.info("Stopping monitor")
         self._stop_monitoring = True
         if self._monitoring_thread:
@@ -141,9 +150,11 @@ class WindowManager:
                 self.logger.warning("Monitor thread did not stop gracefully")
         
     def _get_windows_now(self) -> List[Window]:
+        """Enumerates all current windows and returns filtered list."""
         windows = []
 
         def callback(handle: int, extra) -> bool:
+            """Callback function for enumerating windows."""
             if win32gui.IsWindowVisible(handle):
                 title = win32gui.GetWindowText(handle)
                 if title:
@@ -169,6 +180,7 @@ class WindowManager:
         return windows
 
     def get_all_windows(self, force_refresh: bool = False) -> List[Window]:
+        """Returns a list of all windows, using cache when possible."""
         try:
             with self._lock:
                 current_time = time.time()
@@ -184,6 +196,7 @@ class WindowManager:
             raise WindowManagerError("Failed to get window list") from e
 
     def switch_to_window(self, handle: int) -> bool:
+        """Switches to the specified window by handle."""
         try:
             if not win32gui.IsWindow(handle) or not win32gui.IsWindowVisible(handle):
                 self.logger.warning(f"Invalid window {handle}")
