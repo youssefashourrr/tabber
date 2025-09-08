@@ -1,6 +1,5 @@
 import sys
 from PyQt5.QtWidgets import QApplication
-from PyQt5.QtCore import QObject, pyqtSignal
 
 from src.ui.searchbar import SearchBar
 from src.utils.hotkey_listener import GlobalHotkeyListener
@@ -11,7 +10,7 @@ def main():
     logger = get_logger("main")
     
     try:
-        logger.info("Starting Tabber application")
+        logger.info("Starting Tabber")
         
         app = QApplication(sys.argv)
         app.setQuitOnLastWindowClosed(False)

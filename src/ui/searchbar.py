@@ -1,7 +1,7 @@
-from typing import List, Any
+from typing import List
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, 
                              QLineEdit, QListWidget, QListWidgetItem)
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QKeyEvent, QFocusEvent, QCloseEvent
 
 from ..core.window_manager import WindowManager
