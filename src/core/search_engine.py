@@ -1,8 +1,8 @@
 from rapidfuzz.fuzz import ratio, partial_ratio
 from typing import List, Tuple
 
-from window import Window
-from logger import get_logger, log_exception, SearchEngineError
+from .window import Window
+from ..utils.logger import get_logger, log_exception, SearchEngineError
 
 
 def _calculate_score(window: Window, query: str) -> float:

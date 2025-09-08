@@ -4,10 +4,10 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout,
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
 from PyQt5.QtGui import QKeyEvent, QFocusEvent, QCloseEvent
 
-from window_manager import WindowManager
-from search_engine import search_windows
-from window import Window
-from logger import get_logger, log_exception, UIError, SearchEngineError, WindowManagerError
+from ..core.window_manager import WindowManager
+from ..core.search_engine import search_windows
+from ..core.window import Window
+from ..utils.logger import get_logger, log_exception, UIError, SearchEngineError, WindowManagerError
 
 
 class SearchBar(QWidget):

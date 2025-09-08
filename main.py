@@ -2,16 +2,16 @@ import sys
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import QObject, pyqtSignal
 
-from searchbar import SearchBar
-from hotkey_listener import GlobalHotkeyListener
-from logger import get_logger, log_exception, HotkeyError, UIError
+from src.ui.searchbar import SearchBar
+from src.utils.hotkey_listener import GlobalHotkeyListener
+from src.utils.logger import get_logger, log_exception, HotkeyError, UIError
 
 
 def main():
     logger = get_logger("main")
     
     try:
-        logger.info("Starting application")
+        logger.info("Starting Tabber application")
         
         app = QApplication(sys.argv)
         app.setQuitOnLastWindowClosed(False)

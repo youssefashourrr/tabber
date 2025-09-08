@@ -2,7 +2,7 @@ from typing import Optional, Union
 from PyQt5.QtCore import QObject, pyqtSignal
 from pynput import keyboard
 
-from logger import get_logger, log_exception, HotkeyError
+from .logger import get_logger, log_exception, HotkeyError
 
 
 class GlobalHotkeyListener(QObject):
@@ -69,7 +69,7 @@ class GlobalHotkeyListener(QObject):
         self.hotkey_pressed.emit()
     
     def on_quit_pressed(self) -> None:
-        """Emits signal when hide hotkey is pressed."""
+        """Emits signal when quit hotkey is pressed."""
         self.logger.info("Alt+Ctrl+Q pressed - quitting application")
         self.quit_requested.emit()
         

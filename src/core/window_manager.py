@@ -6,8 +6,8 @@ import threading
 import time
 from typing import Callable, List
 
-from window import Window
-from logger import get_logger, log_exception, WindowManagerError
+from .window import Window
+from ..utils.logger import get_logger, log_exception, WindowManagerError
 
 SYSTEM_PROCESSES = {
     'dwm.exe',
@@ -114,7 +114,6 @@ class WindowManager:
     def _start_monitoring(self) -> None:
         """Starts a background thread to monitor window changes."""
         def monitor_thread():
-            """Background thread function that monitors window changes."""
             self.logger.debug("Window monitoring thread started")
             while not self._stop_monitoring:
                 try:
